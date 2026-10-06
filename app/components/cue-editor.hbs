@@ -198,26 +198,149 @@
       </section>
 
       <section class="version-panel paper-surface">
-        <div class="panel-heading"><div><small>LOCKED VERSIONS</small><h2>版本比较</h2></div></div>
+        <div class="panel-heading"><div><small>LOCKED VERSIONS</small><h2>版本与恢复</h2></div></div>
+        <div class="version-tabs" role="tablist">
+          <button type="button" class="version-tab {{if this.isCompareTab "is-active"}}" role="tab" {{on "click" (fn this.setVersionTab "compare")}}>版本比较</button>
+          <button type="button" class="version-tab {{if this.isRestoreTab "is-active"}}" role="tab" {{on "click" (fn this.setVersionTab "restore")}}>恢复台</button>
+        </div>
         {{#if this.versions.length}}
-          <PaperSelect @label="选择锁定版" @options={{this.versions}} @optionLabelPath="name" @selected={{this.compareVersion}} @onChange={{this.selectCompareVersion}} class="version-select" />
-          {{#if this.compareVersion}}
-            <div class="version-summary">
-              <strong>{{this.compareVersion.name}}</strong>
-              <small>{{this.compareVersion.data.title}} · {{this.versionDiff.length}} 条提示</small>
-            </div>
-            <div class="diff-list">
-              {{#each this.versionDiff as |diff|}}
-                <div class="diff-row {{if diff.changed "is-changed"}}">
-                  <span>{{diff.label}}</span>
-                  <p>{{diff.before}}</p>
-                  <p>{{diff.after}}</p>
+          {{#if this.isCompareTab}}
+            <PaperSelect @label="选择锁定版" @options={{this.versions}} @optionLabelPath="name" @selected={{this.compareVersion}} @onChange={{this.selectCompareVersion}} class="version-select" />
+            {{#if this.compareVersion}}
+              <div class="version-summary">
+                <strong>{{this.compareVersion.name}}</strong>
+                <small>{{this.compareVersion.data.title}} · {{this.versionDiff.length}} 条对照</small>
+              </div>
+              <div class="diff-list">
+                {{#each this.versionDiff as |diff|}}
+                  <div class="diff-row {{if diff.changed "is-changed"}}">
+                    <span>{{diff.label}}</span>
+                    <p>{{diff.before}}</p>
+                    <p>{{diff.after}}</p>
+                  </div>
+                {{/each}}
+              </div>
+            {{/if}}
+          {{else}}
+            <PaperSelect @label="从锁定版挑回" @options={{this.versions}} @optionLabelPath="name" @selected={{this.restoreVersion}} @onChange={{this.selectRestoreVersion}} class="version-select" />
+            {{#if this.restoreVersion}}
+              <p class="restore-source">版本来源：{{this.restoreSourceLabel}}</p>
+              {{#if this.restoreView}}
+                <div class="restore-toolbar">
+                  <PaperButton @onClick={{this.selectAllDifferences}}>全选差异</PaperButton>
+                  <PaperButton @onClick={{this.clearRestoreSelections}}>清空选择</PaperButton>
+                  <span class="restore-count">{{this.restorePlan.pendingCount}} 项待应用</span>
                 </div>
-              {{/each}}
-            </div>
+
+                {{#if this.restoreBlocked}}
+                  <div class="restore-blockers">
+                    <h4>整批拦住 · 前置关系校验未通过</h4>
+                    {{#each this.restorePlan.blockers as |blocker|}}
+                      <div class="restore-blocker severity-{{blocker.kind}}">
+                        <strong>{{blocker.shortTitle}}</strong>
+                        <p>{{blocker.message}}</p>
+                      </div>
+                    {{/each}}
+                  </div>
+                {{/if}}
+                {{#if this.restoreLockedScenes.length}}
+                  <div class="restore-blockers">
+                    <div class="restore-blocker severity-locked">
+                      <strong>当前场次已锁定</strong>
+                      <p>{{join "、" this.restoreLockedScenes}} 处于锁定状态，请先建立可编辑修订后再恢复。</p>
+                    </div>
+                  </div>
+                {{/if}}
+
+                <div class="pending-zone">
+                  <div class="pending-head"><h4>待应用区</h4><span>先核对，后统一写入</span></div>
+                  {{#each this.pendingRestoreRows as |row|}}
+                    <div class="pending-row" data-pending-row={{row.key}}>
+                      <div class="pending-row-head">
+                        <div>
+                          <strong>{{row.cueTitle}}</strong>
+                          <small>{{row.sceneLabel}} · 编号 {{row.cueId}}</small>
+                        </div>
+                        <button type="button" class="pending-remove" title="移出待应用区" {{on "click" (fn this.removePendingRow row.key)}}>移除</button>
+                      </div>
+                      <ul class="pending-changes">
+                        {{#each row.changes as |change|}}
+                          <li>
+                            <span class="field-tag">{{change.label}}</span>
+                            <em class="value-before">{{change.before}}</em>
+                            <span class="value-arrow">→</span>
+                            <em class="value-after">{{change.after}}</em>
+                          </li>
+                        {{/each}}
+                      </ul>
+                    </div>
+                  {{else}}
+                    <p class="empty-copy">勾选下方差异后，选中的负责人、时长、灯光音响、道具演员和前置关系会先列在这里，确认后再统一应用。</p>
+                  {{/each}}
+                  <div class="pending-actions">
+                    <button type="button" class="apply-restore-btn" disabled={{if this.canApplyRestore false true}} {{on "click" this.applyRestore}}>应用选中内容并重算</button>
+                    {{#if this.restoreNotice}}<p class="restore-notice">{{this.restoreNotice}}</p>{{/if}}
+                  </div>
+                </div>
+
+                <div class="restore-groups">
+                  {{#each this.restoreView.groups as |group|}}
+                    <div class="restore-group">
+                      <h4 class="restore-group-title">
+                        {{group.sceneLabel}}
+                        {{#if group.missingScene}}<span class="badge badge-gone">当前表无此场次</span>{{/if}}
+                      </h4>
+                      {{#each group.matches as |match|}}
+                        <article class="restore-cue {{if match.restorable "" "is-unrestorable"}}">
+                          <div class="restore-cue-head">
+                            {{#if match.restorable}}
+                              <input
+                                type="checkbox"
+                                class="restore-cue-check"
+                                checked={{match.allChecked}}
+                                aria-label="选择该提示的全部差异"
+                                {{on "change" (fn this.toggleRestoreCue group.sceneId match.cueId (if match.allChecked false true))}}
+                              >
+                            {{/if}}
+                            <strong class="restore-cue-title">{{match.displayTitle}}</strong>
+                            <small class="cue-code">{{match.cueId}}</small>
+                            {{#if match.renamed}}<span class="badge badge-rename" title="提示编号未变，身份按编号确认">已改名</span>{{/if}}
+                            {{#if match.moved}}<span class="badge badge-move" title="同场顺序变化，身份不受顺序影响">顺序 #{{match.lockedIndex}} → #{{match.currentIndex}}</span>{{/if}}
+                            {{#unless match.locked}}<span class="badge badge-new">当前新增</span>{{/unless}}
+                            {{#unless match.current}}<span class="badge badge-gone">当前已删除</span>{{/unless}}
+                          </div>
+                          {{#if match.restorable}}
+                            <div class="restore-fields">
+                              {{#each match.changes as |change|}}
+                                <label class="restore-field {{if change.changed "is-changed" "is-same"}}">
+                                  <input
+                                    type="checkbox"
+                                    checked={{change.selected}}
+                                    disabled={{if change.changed false true}}
+                                    {{on "change" (fn this.toggleRestoreField group.sceneId match.cueId change.field)}}
+                                  >
+                                  <span class="field-name">{{change.label}}</span>
+                                  <span class="field-values"><em class="value-before">{{change.before}}</em><span class="value-arrow">→</span><em class="value-after">{{change.after}}</em></span>
+                                </label>
+                              {{/each}}
+                            </div>
+                          {{else if match.current}}
+                            <p class="restore-hint">锁定版中没有这个编号，按新增提示处理，不能从锁定版恢复。</p>
+                          {{else}}
+                            <p class="restore-hint">该编号只存在于锁定版，当前演出表已没有对应提示，恢复台不会把它新增回来。</p>
+                          {{/if}}
+                        </article>
+                      {{/each}}
+                    </div>
+                  {{/each}}
+                </div>
+              {{/if}}
+            {{else}}
+              <p class="empty-copy">请选择一份锁定版作为挑回来源。锁定版保持只读，恢复只会写入当前演出表。</p>
+            {{/if}}
           {{/if}}
         {{else}}
-          <p class="empty-copy">尚未锁定版本。锁定后可比较当前流程与历史快照。</p>
+          <p class="empty-copy">尚未锁定版本。锁定后可比较当前流程与历史快照，并从锁定版逐条挑回安排。</p>
         {{/if}}
       </section>
     </aside>

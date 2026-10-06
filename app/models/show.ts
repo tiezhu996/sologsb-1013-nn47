@@ -38,6 +38,18 @@ export interface VersionSnapshot {
   name: string;
   createdAt: string;
   data: ShowData;
+  /** 版本来源标记；早期锁定的快照没有该字段，按兼容数据处理 */
+  source?: string;
+}
+
+/** 恢复台可从锁定版挑回的内容字段；标题、类型、顺序属于身份或当前编排，不在此列 */
+export type RestoreField =
+  'owner' | 'duration' | 'lighting' | 'sound' | 'props' | 'cast' | 'dependsOn';
+
+export interface RestoreSelection {
+  sceneId: string;
+  cueId: string;
+  fields: RestoreField[];
 }
 
 export interface CueDraft {
@@ -72,5 +84,12 @@ export interface VersionDiff {
   after: string;
 }
 
-export const CUE_KINDS: CueKind[] = ['灯光', '音响', '道具', '演员', '舞台', '字幕'];
+export const CUE_KINDS: CueKind[] = [
+  '灯光',
+  '音响',
+  '道具',
+  '演员',
+  '舞台',
+  '字幕',
+];
 export const OWNERS = ['李岚', '周启', '陈默', '赵一帆', '孙禾', '待指定'];
