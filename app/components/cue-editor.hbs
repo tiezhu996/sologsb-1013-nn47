@@ -168,6 +168,7 @@
               <dt>道具</dt><dd>{{if this.selectedCue.props.length this.selectedProps "—"}}</dd>
               <dt>演员</dt><dd>{{if this.selectedCue.cast.length this.selectedCast "—"}}</dd>
               <dt>备注</dt><dd>{{if this.selectedCue.notes this.selectedCue.notes "—"}}</dd>
+              <dt>来源</dt><dd>{{this.selectedCueSource}}</dd>
             </dl>
             <div class="inspector-actions">
               <PaperButton @onClick={{this.editSelectedCue}} @raised={{true}} @primary={{true}}>编辑提示</PaperButton>
@@ -201,6 +202,9 @@
         <div class="panel-heading"><div><small>LOCKED VERSIONS</small><h2>版本比较</h2></div></div>
         {{#if this.versions.length}}
           <PaperSelect @label="选择锁定版" @options={{this.versions}} @optionLabelPath="name" @selected={{this.compareVersion}} @onChange={{this.selectCompareVersion}} class="version-select" />
+          <div class="version-actions">
+            <PaperButton @raised={{true}} @primary={{true}} @onClick={{this.openRestoreDesk}} class="wide-button">打开恢复台 · 挑回部分安排</PaperButton>
+          </div>
           {{#if this.compareVersion}}
             <div class="version-summary">
               <strong>{{this.compareVersion.name}}</strong>
@@ -222,6 +226,91 @@
       </section>
     </aside>
   </main>
+
+  {{#if this.restoreOpen}}
+    <div class="restore-overlay" role="dialog" aria-modal="true" aria-label="恢复台">
+      <div class="restore-panel">
+        <div class="restore-head">
+          <div>
+            <small>RESTORE DESK</small>
+            <h2>恢复台 · 从锁定版挑回部分安排</h2>
+          </div>
+          <button type="button" class="close-button" {{on "click" this.closeRestoreDesk}}>×</button>
+        </div>
+        <div class="restore-toolbar">
+          <PaperSelect @label="锁定版（只读）" @options={{this.versions}} @optionLabelPath="name" @selected={{this.restoreVersion}} @onChange={{this.selectRestoreVersion}} class="restore-version-select" />
+          <p class="restore-note">锁定版保持只读，写回的始终是当前演出表。身份＝提示编号＋所属场次；改名、挪场、调序都不会被当成新增，旧引用随原编号恢复。</p>
+        </div>
+        <div class="restore-fields">
+          <span class="restore-fields-title">恢复内容</span>
+          {{#each this.restoreFieldOptions key="key" as |field|}}
+            <label class="restore-field">
+              <input type="checkbox" checked={{field.checked}} {{on "change" (fn this.toggleRestoreField field.key)}} />
+              {{field.label}}
+            </label>
+          {{/each}}
+        </div>
+        <div class="restore-body">
+          <section class="restore-source">
+            {{#each this.restoreSourceRows key="id" as |sceneRow|}}
+              <div class="restore-scene">
+                <div class="restore-scene-head">{{sceneRow.label}}</div>
+                {{#each sceneRow.cues key="key" as |row|}}
+                  <label class="restore-cue">
+                    <input type="checkbox" checked={{row.checked}} {{on "change" (fn this.toggleRestoreCue row.sceneId row.cue.id)}} />
+                    <span class="restore-cue-main">
+                      <span class="restore-cue-title">
+                        <span class="cue-kind">{{row.cue.kind}}</span>
+                        <strong>{{row.cue.title}}</strong>
+                      </span>
+                      <small>编号 {{row.cue.id}} · {{if row.cue.owner row.cue.owner "待指定"}} · {{row.cue.duration}} 秒{{if row.dependsLabel (concat " · " row.dependsLabel) ""}}</small>
+                    </span>
+                    <em class="match-badge {{row.matchClass}}">{{row.matchLabel}}</em>
+                  </label>
+                {{/each}}
+              </div>
+            {{else}}
+              <p class="empty-copy">该锁定版没有场次内容。</p>
+            {{/each}}
+          </section>
+          <section class="restore-queue">
+            <div class="restore-queue-head">
+              <h3>待应用区</h3>
+              <span class="queue-count">{{this.restoreQueue.length}}</span>
+            </div>
+            <div class="restore-queue-list">
+              {{#each this.restoreQueueRows key="key" as |row|}}
+                <div class="queue-row">
+                  <div class="queue-row-main">
+                    <strong>{{row.title}}</strong>
+                    <small>编号 {{row.cueId}} · {{row.sceneLabel}}</small>
+                    <em class="match-badge {{row.planClass}}">{{row.planLabel}}</em>
+                  </div>
+                  <button type="button" class="queue-remove" {{on "click" (fn this.removeRestoreItem row.key)}}>×</button>
+                </div>
+              {{else}}
+                <p class="empty-copy">在左侧勾选要挑回的提示，会先列在这里，确认后再应用。</p>
+              {{/each}}
+            </div>
+            {{#if this.restoreProblems.length}}
+              <div class="restore-problems">
+                <strong>恢复校验未通过，整批拦住 {{this.restoreProblems.length}} 项</strong>
+                <ul>
+                  {{#each this.restoreProblems key="key" as |problem|}}
+                    <li>{{problem.message}}</li>
+                  {{/each}}
+                </ul>
+              </div>
+            {{/if}}
+            <div class="restore-actions">
+              <PaperButton @onClick={{this.clearRestoreQueue}} @disabled={{this.restoreQueueEmpty}}>清空</PaperButton>
+              <PaperButton @raised={{true}} @primary={{true}} @onClick={{this.applyRestore}} @disabled={{this.restoreApplyDisabled}}>应用恢复</PaperButton>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  {{/if}}
 
   {{#if this.message}}<div class="toast-message">{{this.message}}</div>{{/if}}
 </div>

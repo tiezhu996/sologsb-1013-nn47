@@ -13,6 +13,8 @@ export interface Cue {
   notes: string;
   dependsOn: string[];
   offset: number;
+  /** 恢复来源（锁定版名称）。旧数据没有该字段，界面按“当前记录”兼容显示。 */
+  sourceVersion?: string;
 }
 
 export interface Scene {
@@ -72,5 +74,12 @@ export interface VersionDiff {
   after: string;
 }
 
-export const CUE_KINDS: CueKind[] = ['灯光', '音响', '道具', '演员', '舞台', '字幕'];
+export const CUE_KINDS: CueKind[] = [
+  '灯光',
+  '音响',
+  '道具',
+  '演员',
+  '舞台',
+  '字幕',
+];
 export const OWNERS = ['李岚', '周启', '陈默', '赵一帆', '孙禾', '待指定'];
